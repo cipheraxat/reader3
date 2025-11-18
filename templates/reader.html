@@ -6,39 +6,631 @@
     <title>{{ book.metadata.title }}</title>
     <style>
         /* Layout */
-        body { margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-family: "Georgia", serif; background: #fff; }
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #fafafa; 
+            color: #1a1a1a;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body.dark-mode { background: #0f0f0f; color: #e8e8e8; }
 
-        /* Sidebar */
-        #sidebar { width: 300px; background: #f8f9fa; border-right: 1px solid #e9ecef; overflow-y: auto; padding: 20px; flex-shrink: 0; }
-        .nav-header { font-family: -apple-system, sans-serif; font-weight: bold; color: #495057; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6; }
-        .nav-home { display: block; margin-bottom: 20px; color: #3498db; text-decoration: none; font-family: -apple-system, sans-serif; font-size: 0.9em; }
+        /* Toolbar - Minimalist floating design */
+        #toolbar { 
+            position: fixed; 
+            top: 20px; 
+            right: 20px; 
+            left: 320px;
+            background: rgba(255, 255, 255, 0.8); 
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            padding: 8px 16px; 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+            z-index: 100; 
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body.dark-mode #toolbar { 
+            background: rgba(20, 20, 20, 0.8); 
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.2);
+        }
+        .toolbar-btn { 
+            background: transparent;
+            border: none;
+            padding: 8px 12px; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 13px;
+            font-weight: 500;
+            color: #4a5568;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        body.dark-mode .toolbar-btn { color: #a0aec0; }
+        .toolbar-btn:hover { 
+            background: rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
+        }
+        body.dark-mode .toolbar-btn:hover { background: rgba(255, 255, 255, 0.08); }
+        .toolbar-btn:active { transform: translateY(0); }
+        .progress-bar { 
+            flex-grow: 1; 
+            height: 4px; 
+            background: rgba(0, 0, 0, 0.06);
+            border-radius: 2px; 
+            overflow: hidden;
+            margin: 0 12px;
+        }
+        body.dark-mode .progress-bar { background: rgba(255, 255, 255, 0.1); }
+        .progress-fill { 
+            height: 100%; 
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-        /* TOC Tree */
+        /* Sidebar - Cleaner design */
+        #sidebar { 
+            width: 280px; 
+            background: #ffffff;
+            border-right: 1px solid rgba(0, 0, 0, 0.06);
+            overflow-y: auto; 
+            padding: 24px 20px; 
+            flex-shrink: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body.dark-mode #sidebar { 
+            background: #1a1a1a;
+            border-right-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-header { 
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            font-size: 15px;
+            letter-spacing: -0.01em;
+        }
+        body.dark-mode .nav-header { 
+            color: #e8e8e8;
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-home { 
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 24px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-home:hover { color: #764ba2; transform: translateX(-2px); }
+        body.dark-mode .nav-home { color: #a78bfa; }
+        body.dark-mode .nav-home:hover { color: #c4b5fd; }
+
+        /* TOC Tree - Minimalist */
         ul.toc-list { list-style: none; padding-left: 0; margin: 0; }
-        ul.toc-list ul { padding-left: 20px; } /* Indent children */
-        li.toc-item { margin-bottom: 8px; }
-        a.toc-link { text-decoration: none; color: #495057; font-size: 0.95em; display: block; padding: 4px 0; line-height: 1.4; }
-        a.toc-link:hover { color: #000; text-decoration: underline; }
-        a.toc-link.active { color: #d63384; font-weight: bold; }
+        ul.toc-list ul { padding-left: 16px; }
+        li.toc-item { margin-bottom: 4px; }
+        a.toc-link { 
+            text-decoration: none;
+            color: #4a5568;
+            font-size: 13px;
+            display: block;
+            padding: 6px 10px;
+            line-height: 1.5;
+            border-radius: 6px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        body.dark-mode a.toc-link { color: #a0aec0; }
+        a.toc-link:hover { 
+            background: rgba(0, 0, 0, 0.04);
+            color: #1a1a1a;
+            transform: translateX(2px);
+        }
+        body.dark-mode a.toc-link:hover { 
+            background: rgba(255, 255, 255, 0.06);
+            color: #e8e8e8;
+        }
+        a.toc-link.active { 
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            font-weight: 500;
+        }
+        body.dark-mode a.toc-link.active { 
+            color: #a78bfa;
+            background: rgba(167, 139, 250, 0.15);
+        }
 
-        /* Main Content */
-        #main { flex-grow: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
-        .content-container { max-width: 700px; margin: 0 auto; padding: 60px 40px; line-height: 1.8; font-size: 1.15em; color: #212529; }
+        /* Main Content - Typography focused */
+        #main { 
+            flex-grow: 1;
+            overflow-y: auto;
+            position: relative;
+            scroll-behavior: smooth;
+            background: #fafafa;
+        }
+        body.dark-mode #main { background: #0f0f0f; }
+        .content-container { 
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 120px 48px 80px;
+            line-height: 1.75;
+            font-size: 18px;
+            color: #2d3748;
+            font-family: 'Georgia', 'Times New Roman', serif;
+        }
+        body.dark-mode .content-container { color: #e2e8f0; }
 
-        /* Content Styling (Basic normalization for the book HTML) */
-        .book-content img { max-width: 100%; height: auto; display: block; margin: 20px auto; }
-        .book-content h1, .book-content h2, .book-content h3 { font-family: -apple-system, sans-serif; margin-top: 1.5em; color: #333; }
-        .book-content p { margin-bottom: 1.5em; text-align: justify; }
+        /* Content Styling - Clean typography */
+        .book-content img { 
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 32px auto;
+            border-radius: 8px;
+        }
+        .book-content h1, .book-content h2, .book-content h3 { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin-top: 2em;
+            margin-bottom: 0.75em;
+            color: #1a1a1a;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+        }
+        .book-content h1 { font-size: 2em; }
+        .book-content h2 { font-size: 1.5em; }
+        .book-content h3 { font-size: 1.25em; }
+        body.dark-mode .book-content h1, 
+        body.dark-mode .book-content h2, 
+        body.dark-mode .book-content h3 { color: #f7fafc; }
+        .book-content p { 
+            margin-bottom: 1.5em;
+            text-align: left;
+        }
+        .bookmark-indicator { 
+            position: fixed;
+            top: 80px;
+            right: 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-size: 13px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .bookmark-indicator.show { opacity: 1; transform: translateY(0); }
 
-        /* Navigation Footer */
-        .chapter-nav { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-family: -apple-system, sans-serif; }
-        .nav-btn { text-decoration: none; color: #3498db; font-weight: bold; padding: 10px 20px; border: 1px solid #3498db; border-radius: 4px; transition: all 0.2s; }
-        .nav-btn:hover { background: #3498db; color: white; }
-        .nav-btn.disabled { opacity: 0.5; pointer-events: none; border-color: #ccc; color: #ccc; }
+        /* Text Highlighting - Modern colors */
+        .highlight { 
+            background: rgba(253, 224, 71, 0.3);
+            padding: 2px 0;
+            cursor: pointer;
+            position: relative;
+            border-radius: 2px;
+            transition: background 0.2s;
+        }
+        .highlight:hover { background: rgba(253, 224, 71, 0.5); }
+        body.dark-mode .highlight { background: rgba(251, 191, 36, 0.25); }
+        body.dark-mode .highlight:hover { background: rgba(251, 191, 36, 0.35); }
+        .highlight-yellow { background: rgba(253, 224, 71, 0.3); }
+        .highlight-green { background: rgba(134, 239, 172, 0.3); }
+        .highlight-blue { background: rgba(147, 197, 253, 0.3); }
+        .highlight-pink { background: rgba(244, 114, 182, 0.3); }
+
+        /* Notes Panel - Sleeker design */
+        #notesPanel { 
+            position: fixed;
+            right: -380px;
+            top: 0;
+            width: 360px;
+            height: 100vh;
+            background: white;
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.08);
+            padding: 32px 24px;
+            overflow-y: auto;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 999;
+        }
+        body.dark-mode #notesPanel { 
+            background: #1a1a1a;
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+        }
+        #notesPanel.open { right: 0; }
+        .note-item { 
+            background: rgba(0, 0, 0, 0.02);
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            border-left: 3px solid #667eea;
+            transition: all 0.2s;
+        }
+        .note-item:hover { background: rgba(0, 0, 0, 0.04); }
+        body.dark-mode .note-item { 
+            background: rgba(255, 255, 255, 0.04);
+            border-left-color: #a78bfa;
+        }
+        body.dark-mode .note-item:hover { background: rgba(255, 255, 255, 0.06); }
+        .note-text { 
+            margin-bottom: 8px;
+            line-height: 1.5;
+            color: #2d3748;
+        }
+        body.dark-mode .note-text { color: #e2e8f0; }
+        .note-meta { 
+            font-size: 11px;
+            color: #a0aec0;
+        }
+        .note-delete { 
+            color: #ef4444;
+            cursor: pointer;
+            float: right;
+            font-size: 14px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .note-delete:hover { opacity: 1; }
+
+        /* Search Modal - Modern overlay */
+        #searchModal { 
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeIn 0.2s;
+        }
+        #searchModal.open { display: flex; }
+        .search-box { 
+            background: white;
+            padding: 32px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 560px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        body.dark-mode .search-box { background: #1a1a1a; }
+        .search-input { 
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 16px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .search-input:focus { 
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        body.dark-mode .search-input { 
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.1);
+            color: #e8e8e8;
+        }
+        body.dark-mode .search-input:focus { 
+            border-color: #a78bfa;
+            box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+        }
+        .search-results { 
+            max-height: 320px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+        .search-result-item { 
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            line-height: 1.5;
+        }
+        body.dark-mode .search-result-item { border-bottom-color: rgba(255, 255, 255, 0.06); }
+        .search-result-item:hover { background: rgba(0, 0, 0, 0.03); }
+        body.dark-mode .search-result-item:hover { background: rgba(255, 255, 255, 0.05); }
+
+        /* Reading Stats - Floating card */
+        #statsPanel { 
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            background: white;
+            padding: 20px 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+            font-size: 13px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        body.dark-mode #statsPanel { 
+            background: #1a1a1a;
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        }
+        #statsPanel.show { 
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+        .stat-row { 
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-label { 
+            color: #718096;
+            font-weight: 500;
+        }
+        body.dark-mode .stat-label { color: #a0aec0; }
+        .stat-value { 
+            font-weight: 600;
+            color: #667eea;
+            margin-left: 16px;
+        }
+
+        /* Theme Selector - Dropdown */
+        #themeMenu { 
+            position: absolute;
+            top: 48px;
+            right: 0;
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 8px;
+            padding: 6px;
+            display: none;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+            min-width: 120px;
+        }
+        body.dark-mode #themeMenu { 
+            background: #1a1a1a;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+        #themeMenu.open { display: block; }
+        .theme-option { 
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 6px;
+            margin: 2px 0;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .theme-option:hover { background: rgba(0, 0, 0, 0.04); }
+        body.dark-mode .theme-option:hover { background: rgba(255, 255, 255, 0.06); }
+        
+        /* Reading Themes */
+        body.theme-sepia { background: #f5f1e8; }
+        body.theme-sepia .content-container { color: #3e3933; }
+        body.theme-sepia #sidebar { background: #ebe5d9; border-right-color: rgba(0, 0, 0, 0.08); }
+        body.theme-sepia #toolbar { background: rgba(245, 241, 232, 0.8); border-color: rgba(0, 0, 0, 0.08); }
+        body.theme-sepia #main { background: #f5f1e8; }
+        body.theme-night { background: #000000; color: #c0c0c0; }
+        body.theme-night .content-container { color: #c0c0c0; }
+        body.theme-night #sidebar { background: #0a0a0a; border-right-color: rgba(255, 255, 255, 0.05); }
+        body.theme-night #toolbar { background: rgba(10, 10, 10, 0.8); border-color: rgba(255, 255, 255, 0.05); }
+        body.theme-night #main { background: #000000; }
+
+        /* Fullscreen Mode */
+        body.fullscreen #sidebar { transform: translateX(-100%); opacity: 0; }
+        body.fullscreen #toolbar { left: 20px; }
+        body.fullscreen .content-container { max-width: 800px; }
+
+        /* Help Panel */
+        #helpPanel { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; z-index: 2001; }
+        #helpPanel.open { display: flex; }
+        .help-content { background: white; padding: 40px; border-radius: 16px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); }
+        body.dark-mode .help-content { background: #1a1a1a; }
+        .help-section { margin-bottom: 24px; }
+        .help-title { font-size: 24px; margin-bottom: 24px; color: #1a1a1a; font-weight: 600; letter-spacing: -0.02em; }
+        body.dark-mode .help-title { color: #e8e8e8; }
+        .shortcut-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(0, 0, 0, 0.06); font-size: 14px; }
+        body.dark-mode .shortcut-row { border-bottom-color: rgba(255, 255, 255, 0.06); }
+        .shortcut-key { background: rgba(0, 0, 0, 0.04); padding: 6px 12px; border-radius: 6px; font-family: 'SF Mono', Monaco, 'Courier New', monospace; font-weight: 500; font-size: 12px; }
+        body.dark-mode .shortcut-key { background: rgba(255, 255, 255, 0.1); }
+
+        /* Navigation Footer - Minimal */
+        .chapter-nav { 
+            display: flex;
+            justify-content: space-between;
+            margin-top: 64px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
+        }
+        body.dark-mode .chapter-nav { border-top-color: rgba(255, 255, 255, 0.06); }
+        .nav-btn { 
+            text-decoration: none;
+            color: #667eea;
+            font-weight: 500;
+            padding: 12px 24px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        body.dark-mode .nav-btn { color: #a78bfa; border-color: rgba(167, 139, 250, 0.2); }
+        .nav-btn:hover { 
+            background: rgba(102, 126, 234, 0.1);
+            border-color: rgba(102, 126, 234, 0.3);
+            transform: translateY(-1px);
+        }
+        body.dark-mode .nav-btn:hover { 
+            background: rgba(167, 139, 250, 0.1);
+            border-color: rgba(167, 139, 250, 0.3);
+        }
+        .nav-btn.disabled { 
+            opacity: 0.3;
+            pointer-events: none;
+            border-color: rgba(0, 0, 0, 0.1);
+            color: #a0aec0;
+        }
+        body.dark-mode .nav-btn.disabled { border-color: rgba(255, 255, 255, 0.1); color: #4a5568; }
+
+        /* Smooth scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.3); }
+        body.dark-mode ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+        body.dark-mode ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
     </style>
 </head>
 <body>
+
+    <!-- TOOLBAR -->
+    <div id="toolbar">
+        <button class="toolbar-btn" onclick="toggleDarkMode()" title="Toggle Dark Mode">🌙 Dark</button>
+        <button class="toolbar-btn" onclick="adjustFontSize(-0.1)" title="Decrease Font Size">A-</button>
+        <button class="toolbar-btn" onclick="adjustFontSize(0.1)" title="Increase Font Size">A+</button>
+        <button class="toolbar-btn" onclick="toggleBookmark()" title="Bookmark This Chapter">🔖</button>
+        <button class="toolbar-btn" onclick="toggleNotes()" title="Toggle Notes Panel">📝 Notes</button>
+        <button class="toolbar-btn" onclick="openSearch()" title="Search in Book">🔍</button>
+        <button class="toolbar-btn" onclick="toggleStats()" title="Reading Statistics">📊</button>
+        <button class="toolbar-btn" onclick="toggleFullscreen()" title="Fullscreen Mode">⛶</button>
+        <button class="toolbar-btn" id="themeBtn" onclick="toggleThemeMenu()" title="Change Theme" style="position: relative;">🎨
+            <div id="themeMenu">
+                <div class="theme-option" onclick="event.stopPropagation(); setTheme('default')">Default</div>
+                <div class="theme-option" onclick="event.stopPropagation(); setTheme('sepia')">Sepia</div>
+                <div class="theme-option" onclick="event.stopPropagation(); setTheme('night')">Night</div>
+            </div>
+        </button>
+        <button class="toolbar-btn" onclick="toggleHelp()" title="Keyboard Shortcuts">❓</button>
+        <div class="progress-bar" title="Reading Progress">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <span id="progressText" style="min-width: 80px; text-align: right;">0%</span>
+    </div>
+
+    <!-- Bookmark Notification -->
+    <div class="bookmark-indicator" id="bookmarkNotif"></div>
+
+    <!-- Notes Panel -->
+    <div id="notesPanel">
+        <h3 style="margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+            📝 Notes & Highlights
+            <button onclick="toggleNotes()" style="background: none; border: none; cursor: pointer; font-size: 1.2em;">✕</button>
+        </h3>
+        <div id="notesList"></div>
+    </div>
+
+    <!-- Search Modal -->
+    <div id="searchModal" onclick="closeSearch()">
+        <div class="search-box" onclick="event.stopPropagation()">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search in book..." onkeyup="performSearch()">
+            <div class="search-results" id="searchResults"></div>
+            <button onclick="closeSearch()" style="margin-top: 10px; padding: 8px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Close</button>
+        </div>
+    </div>
+
+    <!-- Reading Stats Panel -->
+    <div id="statsPanel">
+        <div class="stat-row"><span class="stat-label">Words:</span><span class="stat-value" id="wordCount">0</span></div>
+        <div class="stat-row"><span class="stat-label">Reading Time:</span><span class="stat-value" id="readingTime">0:00</span></div>
+        <div class="stat-row"><span class="stat-label">Est. Time Left:</span><span class="stat-value" id="timeLeft">-</span></div>
+    </div>
+
+    <!-- Help Panel -->
+    <div id="helpPanel" onclick="toggleHelp()">
+        <div class="help-content" onclick="event.stopPropagation()">
+            <h2 class="help-title">⌨️ Keyboard Shortcuts</h2>
+            
+            <div class="help-section">
+                <h3 style="color: #3498db; margin-bottom: 10px;">Navigation</h3>
+                <div class="shortcut-row">
+                    <span>Next Chapter</span>
+                    <span class="shortcut-key">→ or L</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Previous Chapter</span>
+                    <span class="shortcut-key">← or H</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3 style="color: #3498db; margin-bottom: 10px;">Features</h3>
+                <div class="shortcut-row">
+                    <span>Toggle Dark Mode</span>
+                    <span class="shortcut-key">D</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Bookmark Chapter</span>
+                    <span class="shortcut-key">B</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Toggle Notes</span>
+                    <span class="shortcut-key">N</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Search in Book</span>
+                    <span class="shortcut-key">Ctrl+F</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Reading Statistics</span>
+                    <span class="shortcut-key">S</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Fullscreen Mode</span>
+                    <span class="shortcut-key">F or F11</span>
+                </div>
+                <div class="shortcut-row">
+                    <span>Close Modals</span>
+                    <span class="shortcut-key">ESC</span>
+                </div>
+            </div>
+
+            <div class="help-section">
+                <h3 style="color: #3498db; margin-bottom: 10px;">Tips</h3>
+                <p style="color: #666; font-size: 0.9em; line-height: 1.6;">
+                    • Select text and you'll be prompted to add a note or highlight<br>
+                    • Use the toolbar for quick access to all features<br>
+                    • Your reading progress, bookmarks, and notes are saved automatically<br>
+                    • Try different themes for comfortable reading at any time
+                </p>
+            </div>
+
+            <button onclick="toggleHelp()" style="width: 100%; padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; margin-top: 10px;">Close</button>
+        </div>
+    </div>
 
     <!-- SIDEBAR -->
     <div id="sidebar">
@@ -122,33 +714,354 @@
     </div>
 
     <script>
+        // Configuration
+        const BOOK_ID = "{{ book_id }}";
+        const CURRENT_CHAPTER = {{ chapter_index }};
+        const TOTAL_CHAPTERS = {{ book.spine|length }};
+        
         // Helper to map TOC filenames to Spine Indices
-        // Pass the spine data from python to JS
         const spineMap = {
             {% for ch in book.spine %}
             "{{ ch.href }}": {{ ch.order }},
             {% endfor %}
         };
 
+        // Reading timer
+        let readingStartTime = Date.now();
+        let totalReadingTime = 0;
+
+        // Find and navigate to TOC entry
         function findAndGo(filename) {
-            // The TOC usually has specific filenames e.g. "text/part001.html"
-            // Sometimes it has anchors "text/part001.html#header"
-            // We strip the anchor to find the page index
             const cleanFile = filename.split('#')[0];
-            const anchor = filename.split('#')[1];
-
             const idx = spineMap[cleanFile];
-
             if (idx !== undefined) {
-                let url = "/read/{{ book_id }}/" + idx;
-                // If there was an anchor, we could try to scroll to it,
-                // but simple page loads often lose anchor position without extra JS.
-                // Let's just go to the page.
-                window.location.href = url;
+                window.location.href = "/read/{{ book_id }}/" + idx;
             } else {
                 console.log("Could not find index for", filename);
             }
         }
+
+        // Dark Mode Toggle
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            localStorage.setItem('darkMode', isDark);
+            document.querySelector('#toolbar button').textContent = isDark ? '☀️ Light' : '🌙 Dark';
+        }
+
+        // Theme Management
+        function toggleThemeMenu() {
+            document.getElementById('themeMenu').classList.toggle('open');
+        }
+
+        function setTheme(theme) {
+            document.body.className = document.body.className.replace(/theme-\w+/g, '');
+            if (theme !== 'default') {
+                document.body.classList.add('theme-' + theme);
+            }
+            localStorage.setItem('theme', theme);
+            document.getElementById('themeMenu').classList.remove('open');
+        }
+
+        // Fullscreen Mode
+        function toggleFullscreen() {
+            document.body.classList.toggle('fullscreen');
+            const isFullscreen = document.body.classList.contains('fullscreen');
+            localStorage.setItem('fullscreen', isFullscreen);
+        }
+
+        // Notes Panel
+        function toggleNotes() {
+            document.getElementById('notesPanel').classList.toggle('open');
+            loadNotes();
+        }
+
+        function saveNote(text, highlight = null) {
+            const notes = getNotes();
+            const noteId = Date.now();
+            notes[noteId] = {
+                text: text,
+                chapter: CURRENT_CHAPTER,
+                highlight: highlight,
+                date: new Date().toISOString()
+            };
+            localStorage.setItem(`notes_${BOOK_ID}`, JSON.stringify(notes));
+            loadNotes();
+        }
+
+        function deleteNote(noteId) {
+            const notes = getNotes();
+            delete notes[noteId];
+            localStorage.setItem(`notes_${BOOK_ID}`, JSON.stringify(notes));
+            loadNotes();
+        }
+
+        function getNotes() {
+            const stored = localStorage.getItem(`notes_${BOOK_ID}`);
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function loadNotes() {
+            const notes = getNotes();
+            const notesList = document.getElementById('notesList');
+            notesList.innerHTML = '';
+            
+            const chapterNotes = Object.entries(notes)
+                .filter(([_, note]) => note.chapter === CURRENT_CHAPTER)
+                .sort((a, b) => new Date(b[1].date) - new Date(a[1].date));
+            
+            if (chapterNotes.length === 0) {
+                notesList.innerHTML = '<p style="color: #999; font-style: italic;">No notes for this chapter yet.</p>';
+            } else {
+                chapterNotes.forEach(([id, note]) => {
+                    const noteDiv = document.createElement('div');
+                    noteDiv.className = 'note-item';
+                    noteDiv.innerHTML = `
+                        <span class="note-delete" onclick="deleteNote(${id})">✕</span>
+                        <div class="note-text">${note.text}</div>
+                        <div class="note-meta">${new Date(note.date).toLocaleDateString()}</div>
+                    `;
+                    notesList.appendChild(noteDiv);
+                });
+            }
+        }
+
+        // Text Selection and Highlighting
+        document.addEventListener('mouseup', () => {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+            
+            if (text.length > 0 && text.length < 500) {
+                const note = prompt('Add a note for this selection? (or leave empty to just highlight)');
+                if (note !== null) {
+                    if (note.trim()) {
+                        saveNote(note, text);
+                    }
+                    // Highlight the text
+                    const range = selection.getRangeAt(0);
+                    const span = document.createElement('span');
+                    span.className = 'highlight highlight-yellow';
+                    range.surroundContents(span);
+                    selection.removeAllRanges();
+                }
+            }
+        });
+
+        // Search Functionality
+        function openSearch() {
+            document.getElementById('searchModal').classList.add('open');
+            document.getElementById('searchInput').focus();
+        }
+
+        function closeSearch() {
+            document.getElementById('searchModal').classList.remove('open');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').innerHTML = '';
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const results = document.getElementById('searchResults');
+            
+            if (query.length < 2) {
+                results.innerHTML = '';
+                return;
+            }
+            
+            const content = document.querySelector('.book-content').textContent;
+            const sentences = content.split(/[.!?]\s+/);
+            const matches = sentences.filter(s => s.toLowerCase().includes(query)).slice(0, 10);
+            
+            if (matches.length === 0) {
+                results.innerHTML = '<div style="padding: 10px; color: #999;">No results found</div>';
+            } else {
+                results.innerHTML = matches.map(match => {
+                    const highlighted = match.replace(
+                        new RegExp(query, 'gi'),
+                        m => `<strong style="background: #fff59d; color: #000;">${m}</strong>`
+                    );
+                    return `<div class="search-result-item">${highlighted}</div>`;
+                }).join('');
+            }
+        }
+
+        // Reading Statistics
+        function toggleStats() {
+            document.getElementById('statsPanel').classList.toggle('show');
+        }
+
+        function updateReadingStats() {
+            // Word count
+            const text = document.querySelector('.book-content').textContent;
+            const wordCount = text.trim().split(/\s+/).length;
+            document.getElementById('wordCount').textContent = wordCount.toLocaleString();
+            
+            // Reading time
+            const elapsed = Math.floor((Date.now() - readingStartTime + totalReadingTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('readingTime').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Estimated time left (assuming 200 words per minute)
+            const wordsPerMinute = 200;
+            const timeToReadMinutes = Math.ceil(wordCount / wordsPerMinute);
+            document.getElementById('timeLeft').textContent = `~${timeToReadMinutes} min`;
+        }
+
+        // Update stats every second
+        setInterval(updateReadingStats, 1000);
+
+        // Help Panel
+        function toggleHelp() {
+            document.getElementById('helpPanel').classList.toggle('open');
+        }
+
+        // Font Size Adjustment
+        function adjustFontSize(delta) {
+            const content = document.querySelector('.content-container');
+            const currentSize = parseFloat(getComputedStyle(content).fontSize);
+            const newSize = currentSize + (delta * 16);
+            if (newSize >= 14 && newSize <= 28) {
+                content.style.fontSize = newSize + 'px';
+                localStorage.setItem('fontSize', newSize);
+            }
+        }
+
+        // Bookmark System
+        function toggleBookmark() {
+            const bookmarks = getBookmarks();
+            const key = `${BOOK_ID}_${CURRENT_CHAPTER}`;
+            const notif = document.getElementById('bookmarkNotif');
+            
+            if (bookmarks[key]) {
+                delete bookmarks[key];
+                notif.textContent = '🔖 Bookmark removed';
+            } else {
+                bookmarks[key] = {
+                    chapter: CURRENT_CHAPTER,
+                    title: document.querySelector('.nav-header').textContent,
+                    date: new Date().toISOString()
+                };
+                notif.textContent = '🔖 Bookmark added';
+            }
+            
+            localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+            notif.classList.add('show');
+            setTimeout(() => notif.classList.remove('show'), 2000);
+        }
+
+        function getBookmarks() {
+            const stored = localStorage.getItem('bookmarks');
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        // Reading Progress
+        function updateProgress() {
+            const progress = ((CURRENT_CHAPTER + 1) / TOTAL_CHAPTERS) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = Math.round(progress) + '%';
+            
+            // Save reading position
+            const readingData = JSON.parse(localStorage.getItem('readingProgress') || '{}');
+            readingData[BOOK_ID] = {
+                chapter: CURRENT_CHAPTER,
+                progress: progress,
+                lastRead: new Date().toISOString()
+            };
+            localStorage.setItem('readingProgress', JSON.stringify(readingData));
+        }
+
+        // Keyboard Navigation
+        document.addEventListener('keydown', (e) => {
+            // Ignore if typing in an input field
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            if (e.key === 'ArrowLeft' || e.key === 'h') {
+                // Previous chapter
+                {% if prev_idx is not none %}
+                window.location.href = '/read/{{ book_id }}/{{ prev_idx }}';
+                {% endif %}
+            } else if (e.key === 'ArrowRight' || e.key === 'l') {
+                // Next chapter
+                {% if next_idx is not none %}
+                window.location.href = '/read/{{ book_id }}/{{ next_idx }}';
+                {% endif %}
+            } else if (e.key === 'd') {
+                // Toggle dark mode
+                toggleDarkMode();
+            } else if (e.key === 'b') {
+                // Toggle bookmark
+                toggleBookmark();
+            } else if (e.key === 'n') {
+                // Toggle notes
+                toggleNotes();
+            } else if (e.key === 'f' && e.ctrlKey) {
+                // Open search
+                e.preventDefault();
+                openSearch();
+            } else if (e.key === 's') {
+                // Toggle stats
+                toggleStats();
+            } else if (e.key === 'F11' || (e.key === 'f' && !e.ctrlKey)) {
+                // Toggle fullscreen
+                e.preventDefault();
+                toggleFullscreen();
+            } else if (e.key === 'Escape') {
+                // Close modals
+                closeSearch();
+                document.getElementById('notesPanel').classList.remove('open');
+                document.getElementById('statsPanel').classList.remove('show');
+                document.getElementById('helpPanel').classList.remove('open');
+            } else if (e.key === '?') {
+                // Show help
+                toggleHelp();
+            }
+        });
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            // Restore dark mode preference
+            if (localStorage.getItem('darkMode') === 'true') {
+                document.body.classList.add('dark-mode');
+                document.querySelector('#toolbar button').textContent = '☀️ Light';
+            }
+            
+            // Restore theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme && savedTheme !== 'default') {
+                document.body.classList.add('theme-' + savedTheme);
+            }
+            
+            // Restore fullscreen preference
+            if (localStorage.getItem('fullscreen') === 'true') {
+                document.body.classList.add('fullscreen');
+            }
+            
+            // Restore font size preference
+            const savedFontSize = localStorage.getItem('fontSize');
+            if (savedFontSize) {
+                document.querySelector('.content-container').style.fontSize = savedFontSize + 'px';
+            }
+            
+            // Load reading time from storage
+            const readingData = JSON.parse(localStorage.getItem(`readingTime_${BOOK_ID}`) || '{}');
+            if (readingData[CURRENT_CHAPTER]) {
+                totalReadingTime = readingData[CURRENT_CHAPTER];
+            }
+            
+            // Update progress
+            updateProgress();
+            
+            // Initialize stats
+            updateReadingStats();
+        });
+
+        // Save reading time before leaving
+        window.addEventListener('beforeunload', () => {
+            const readingData = JSON.parse(localStorage.getItem(`readingTime_${BOOK_ID}`) || '{}');
+            readingData[CURRENT_CHAPTER] = Date.now() - readingStartTime + totalReadingTime;
+            localStorage.setItem(`readingTime_${BOOK_ID}`, JSON.stringify(readingData));
+        });
     </script>
 </body>
 </html>

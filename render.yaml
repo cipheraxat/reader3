@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: reader3
+    env: python
+    region: oregon
+    plan: free
+    branch: master
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn server:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.0
+      - key: BOOKS_DIR
+        value: /opt/render/project/src
+      - key: MAX_BOOK_CACHE_SIZE
+        value: 5
+      - key: ALLOWED_HOSTS
+        value: "*"
+    autoDeploy: true
