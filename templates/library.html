@@ -204,12 +204,104 @@
             font-family: 'SF Mono', Monaco, 'Courier New', monospace;
             font-size: 14px;
         }
+        .upload-zone {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            margin: 30px 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.6);
+            transform: translateY(-2px);
+        }
+        .upload-zone.uploading {
+            cursor: wait;
+            opacity: 0.7;
+        }
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .upload-text {
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+        .upload-hint {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
+        }
+        .upload-progress {
+            margin-top: 16px;
+            display: none;
+        }
+        .upload-progress-bar {
+            background: rgba(255, 255, 255, 0.3);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        .upload-progress-fill {
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .upload-status {
+            color: white;
+            font-size: 14px;
+        }
+        #fileInput {
+            display: none;
+        }
+        .btn-delete {
+            background: transparent;
+            color: #e53e3e;
+            border: 1px solid rgba(229, 62, 62, 0.3);
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+        .btn-delete:hover {
+            background: rgba(229, 62, 62, 0.1);
+            border-color: rgba(229, 62, 62, 0.5);
+            color: #c53030;
+            box-shadow: none;
+        }
+        .book-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📚 My Library</h1>
         <p class="subtitle">Your personal collection of books</p>
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="uploadZone">
+            <input type="file" id="fileInput" accept=".epub" />
+            <div class="upload-icon">📤</div>
+            <div class="upload-text">Click or drag EPUB file here to upload</div>
+            <div class="upload-hint">Maximum file size: 100MB</div>
+            <div class="upload-progress" id="uploadProgress">
+                <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" id="progressFill"></div>
+                </div>
+                <div class="upload-status" id="uploadStatus">Uploading...</div>
+            </div>
+        </div>
 
         <div class="stats">
             <div class="stat-card">
@@ -228,8 +320,11 @@
 
         {% if not books %}
             <div class="empty-state">
-                <h3>📖 No books yet</h3>
-                <p>Get started by adding your first book:<br><code>uv run reader3.py &lt;epub-file&gt;</code></p>
+                <h3>📖 Welcome to Your Personal Library</h3>
+                <p>Your collection is empty. Upload your first EPUB book using the upload zone above to get started!</p>
+                <p style="margin-top: 20px; font-size: 14px; opacity: 0.8;">
+                    Simply drag and drop an EPUB file or click the upload zone to browse your files.
+                </p>
             </div>
         {% endif %}
 
@@ -247,9 +342,10 @@
                     <div class="progress-bar" style="width: 0%"></div>
                 </div>
                 <div class="last-read"></div>
-                <div style="margin-top: 20px;">
+                <div class="book-actions">
                     <a href="#" class="btn continue-reading" style="display: none;">Continue Reading →</a>
                     <a href="/read/{{ book.id }}/0" class="btn btn-secondary">Start Over</a>
+                    <button class="btn btn-delete" onclick="deleteBook(event, '{{ book.id }}', '{{ book.title }}')">🗑️ Delete</button>
                 </div>
             </div>
             {% endfor %}
@@ -329,6 +425,140 @@
             }
             
             return 'just now';
+        }
+
+        // Upload functionality
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        // Click to upload
+        uploadZone.addEventListener('click', () => {
+            if (!uploadZone.classList.contains('uploading')) {
+                fileInput.click();
+            }
+        });
+
+        // File selected
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        });
+
+        // Drag and drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.epub')) {
+                uploadFile(file);
+            } else {
+                alert('Please upload an EPUB file');
+            }
+        });
+
+        // Upload file function
+        async function uploadFile(file) {
+            uploadZone.classList.add('uploading');
+            uploadProgress.style.display = 'block';
+            progressFill.style.width = '0%';
+            uploadStatus.textContent = 'Uploading...';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const xhr = new XMLHttpRequest();
+
+                // Progress tracking
+                xhr.upload.addEventListener('progress', (e) => {
+                    if (e.lengthComputable) {
+                        const percentComplete = (e.loaded / e.total) * 100;
+                        progressFill.style.width = percentComplete + '%';
+                        uploadStatus.textContent = `Uploading... ${Math.round(percentComplete)}%`;
+                    }
+                });
+
+                // Handle completion
+                xhr.addEventListener('load', () => {
+                    if (xhr.status === 201) {
+                        const response = JSON.parse(xhr.responseText);
+                        uploadStatus.textContent = 'Processing complete! Reloading...';
+                        progressFill.style.width = '100%';
+                        
+                        // Reload page after 1 second
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        const error = JSON.parse(xhr.responseText);
+                        throw new Error(error.detail || 'Upload failed');
+                    }
+                });
+
+                // Handle errors
+                xhr.addEventListener('error', () => {
+                    throw new Error('Network error during upload');
+                });
+
+                xhr.open('POST', '/upload');
+                xhr.send(formData);
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                alert('Upload failed: ' + error.message);
+                uploadZone.classList.remove('uploading');
+                uploadProgress.style.display = 'none';
+                fileInput.value = '';
+            }
+        }
+
+        // Delete book function
+        async function deleteBook(event, bookId, bookTitle) {
+            event.preventDefault();
+            
+            if (!confirm(`Are you sure you want to delete "${bookTitle}"?\\n\\nThis action cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/delete/${bookId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Remove the book card from DOM with animation
+                    const bookCard = event.target.closest('.book-card');
+                    bookCard.style.transition = 'all 0.3s ease';
+                    bookCard.style.opacity = '0';
+                    bookCard.style.transform = 'scale(0.9)';
+                    
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 300);
+                } else {
+                    throw new Error(data.detail || 'Delete failed');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('Failed to delete book: ' + error.message);
+            }
         }
     </script>
 </body>

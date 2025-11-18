@@ -2,11 +2,14 @@ import os
 import pickle
 import logging
 import mimetypes
+import shutil
+import tempfile
+import re
 from functools import lru_cache
 from typing import Optional
 from pathlib import Path
 
-from fastapi import FastAPI, Request, HTTPException, status
+from fastapi import FastAPI, Request, HTTPException, status, UploadFile, File
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,7 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
-from reader3 import Book, BookMetadata, ChapterContent, TOCEntry
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from reader3 import Book, BookMetadata, ChapterContent, TOCEntry, process_epub, save_to_pickle
 
 # Configure logging
 logging.basicConfig(
@@ -24,9 +29,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
-BOOKS_DIR = os.getenv("BOOKS_DIR", ".")
+BOOKS_DIR = os.getenv("BOOKS_DIR", "books")
 MAX_BOOK_CACHE_SIZE = int(os.getenv("MAX_BOOK_CACHE_SIZE", "10"))
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+
+# Ensure books directory exists
+if not os.path.exists(BOOKS_DIR):
+    os.makedirs(BOOKS_DIR)
 
 # Initialize FastAPI with metadata
 app = FastAPI(
@@ -48,7 +57,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Configure properly for production
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -266,6 +275,177 @@ async def read_chapter(request: Request, book_id: str, chapter_index: int):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error loading chapter"
+        )
+
+@app.post("/upload")
+async def upload_epub(file: UploadFile = File(...)):
+    """
+    Upload and process an EPUB file.
+    Returns the book_id on success.
+    """
+    # Validate file type
+    if not file.filename or not file.filename.lower().endswith('.epub'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only EPUB files are allowed"
+        )
+    
+    # Validate file size (max 100MB)
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+    
+    temp_file = None
+    temp_path = None
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.epub') as temp_file:
+            temp_path = temp_file.name
+            
+            # Read and write in chunks to handle large files
+            total_size = 0
+            chunk_size = 1024 * 1024  # 1MB chunks
+            
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                
+                total_size += len(chunk)
+                if total_size > MAX_FILE_SIZE:
+                    os.unlink(temp_path)
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="File size exceeds 100MB limit"
+                    )
+                
+                temp_file.write(chunk)
+        
+        # Generate a clean filename for the output directory
+        safe_filename = Path(file.filename).stem
+        # Sanitize filename: remove special characters
+        safe_filename = re.sub(r'[^\w\s-]', '', safe_filename)
+        safe_filename = re.sub(r'[-\s]+', '_', safe_filename)
+        
+        # Generate full output path
+        output_path = os.path.join(BOOKS_DIR, safe_filename + "_data")
+        
+        # Process the EPUB file
+        logger.info(f"Processing uploaded EPUB: {file.filename} -> {output_path}")
+        book = process_epub(temp_path, output_dir=output_path)
+        
+        if not book:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to process EPUB file"
+            )
+        
+        # Save the book to pickle file
+        save_to_pickle(book, output_path)
+        
+        # Extract book_id from the output path
+        book_id = safe_filename + "_data"
+        
+        # Clear cache for this book
+        load_book_cached.cache_clear()
+        
+        logger.info(f"Successfully uploaded and processed: {file.filename} -> {book_id}")
+        
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content={
+                "success": True,
+                "book_id": book_id,
+                "title": book.metadata.title,
+                "message": "Book uploaded successfully"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing uploaded file {file.filename}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing file: {str(e)}"
+        )
+    finally:
+        # Clean up temporary file
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.unlink(temp_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete temp file {temp_path}: {e}")
+
+@app.delete("/delete/{book_id}")
+async def delete_book(book_id: str):
+    """
+    Delete a book and all its associated data.
+    """
+    # Validate book_id
+    if not validate_book_id(book_id):
+        logger.warning(f"Invalid book_id in delete: {book_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid book identifier"
+        )
+    
+    book_path = Path(BOOKS_DIR) / book_id
+    
+    # Check if book exists
+    if not book_path.exists():
+        logger.info(f"Book not found for deletion: {book_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Book not found"
+        )
+    
+    # Verify it's within BOOKS_DIR (security check)
+    try:
+        resolved_path = book_path.resolve()
+        books_dir_resolved = Path(BOOKS_DIR).resolve()
+        if not str(resolved_path).startswith(str(books_dir_resolved)):
+            logger.error(f"Path traversal attempt in delete: {book_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+    except Exception as e:
+        logger.error(f"Path resolution error in delete for {book_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error validating book path"
+        )
+    
+    try:
+        # Get book title before deletion (for response)
+        book_title = "Unknown"
+        try:
+            book = load_book_cached(book_id)
+            if book:
+                book_title = book.metadata.title
+        except:
+            pass
+        
+        # Delete the book directory
+        shutil.rmtree(book_path)
+        
+        # Clear cache
+        load_book_cached.cache_clear()
+        
+        logger.info(f"Successfully deleted book: {book_id} ({book_title})")
+        
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "success": True,
+                "message": f"Book '{book_title}' deleted successfully"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error deleting book {book_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting book: {str(e)}"
         )
 
 @app.get("/read/{book_id}/images/{image_name}")
