@@ -1,6 +1,6 @@
 # PDFreader - Modern EPUB Reader
 Insipred from Andrej karpathy reader3 repo
-![reader3](reader3.png)
+![reader3](pdfreader.png)
 
 A lightweight, self-hosted EPUB reader with a beautiful interface for reading digital books. Upload your EPUB files through a simple drag-and-drop interface and enjoy a clean reading experience.
 
